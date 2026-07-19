@@ -1,0 +1,30 @@
+name: validate-publish
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Validate + build library
+        run: python3 tools/lib-validate.py
+      - name: Commit dist on main if changed
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          if ! git diff --quiet -- dist/; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add dist/
+            rev=$(python3 -c "import json;print(json.load(open('dist/version.json'))['revision'])")
+            git commit -m "ci: rebuild dist (rev $rev)"
+            git push
+          else
+            echo "dist unchanged"
+          fi
